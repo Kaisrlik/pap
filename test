@@ -1,0 +1,276 @@
+$date
+	Thu Oct  2 15:53:35 2014
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1s
+$end
+$scope module comp2 $end
+$var wire 32 ! a [31:0] $end
+$var wire 32 " b [31:0] $end
+$var reg 1 # isEq $end
+$upscope $end
+$scope module muj_obvod $end
+$var wire 1 $ a $end
+$var wire 1 % b $end
+$var wire 1 & c $end
+$var wire 1 ' d $end
+$var wire 1 ( e $end
+$upscope $end
+$scope module multAx4 $end
+$var wire 32 ) a [31:0] $end
+$var reg 32 * e [31:0] $end
+$var reg 1 + isZero $end
+$upscope $end
+$scope module register32 $end
+$var wire 32 , a [31:0] $end
+$var wire 1 - rs $end
+$var reg 32 . e [31:0] $end
+$upscope $end
+$scope module signExt16t32 $end
+$var wire 16 / a [15:0] $end
+$var reg 32 0 e [31:0] $end
+$upscope $end
+$scope module test $end
+$var wire 1 1 flagZero $end
+$var wire 1 2 flagoverflow $end
+$var wire 1 3 y $end
+$var reg 1 4 a $end
+$var reg 1 5 b $end
+$var reg 1 6 c $end
+$var reg 1 7 d $end
+$var reg 32 8 data0 [31:0] $end
+$var reg 32 9 data1 [31:0] $end
+$var reg 32 : data5 [31:0] $end
+$var reg 2 ; x [1:0] $end
+$scope module muxCv_1 $end
+$var wire 1 < a $end
+$var wire 1 = b $end
+$var wire 1 > c $end
+$var wire 1 ? d $end
+$var reg 1 @ e $end
+$upscope $end
+$scope module m2 $end
+$var wire 32 A a [31:0] $end
+$var wire 32 B b [31:0] $end
+$var wire 1 < x $end
+$var reg 32 C e [31:0] $end
+$upscope $end
+$scope module m3 $end
+$var wire 32 D a [31:0] $end
+$var wire 32 E b [31:0] $end
+$var wire 32 F c [31:0] $end
+$var wire 2 G x [1:0] $end
+$var reg 32 H e [31:0] $end
+$upscope $end
+$scope module s32 $end
+$var wire 32 I a [31:0] $end
+$var wire 32 J b [31:0] $end
+$var reg 32 K e [31:0] $end
+$var reg 1 L isZero $end
+$var reg 1 M overflow $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+1M
+0L
+b1010101010101010101010101010100 K
+b1010101010101010101010101010101 J
+b11111111111111111111111111111111 I
+bz H
+b11 G
+b1010101010101010101010101010101 F
+b0 E
+b11111111111111111111111111111111 D
+b11111111111111111111111111111111 C
+b0 B
+b11111111111111111111111111111111 A
+0@
+0?
+0>
+0=
+0<
+b11 ;
+b1010101010101010101010101010101 :
+b11111111111111111111111111111111 9
+b0 8
+07
+06
+05
+04
+x3
+12
+01
+bz0000000000000000zzzzzzzzzzzzzzz 0
+bz /
+bz .
+z-
+bz ,
+0+
+bx *
+bz )
+x(
+x'
+z&
+z%
+z$
+0#
+bz "
+bz !
+$end
+#20
+b0 C
+b11111111111111111111111111111111 H
+14
+1<
+b0 ;
+b0 G
+#40
+b11111111111111111111111111111111 C
+b0 H
+1@
+04
+0<
+b1 ;
+b1 G
+15
+1=
+#60
+b0 C
+0@
+b1010101010101010101010101010101 H
+14
+1<
+b10 ;
+b10 G
+#80
+b11111111111111111111111111111111 C
+bz H
+1@
+04
+0<
+b11 ;
+b11 G
+05
+0=
+16
+1>
+#100
+b0 C
+0@
+b11111111111111111111111111111111 H
+14
+1<
+b0 ;
+b0 G
+#120
+b11111111111111111111111111111111 C
+b0 H
+1@
+04
+0<
+b1 ;
+b1 G
+15
+1=
+#140
+b0 C
+b1010101010101010101010101010101 H
+14
+1<
+b10 ;
+b10 G
+#160
+b11111111111111111111111111111111 C
+bz H
+04
+0<
+b11 ;
+b11 G
+05
+0=
+06
+0>
+17
+1?
+#180
+b0 C
+0@
+b11111111111111111111111111111111 H
+14
+1<
+b0 ;
+b0 G
+#200
+x3
+b11111111111111111111111111111111 C
+b0 H
+04
+0<
+b1 ;
+b1 G
+15
+1=
+#220
+b0 C
+b1010101010101010101010101010101 H
+14
+1<
+b10 ;
+b10 G
+#240
+b11111111111111111111111111111111 C
+bz H
+1@
+04
+0<
+b11 ;
+b11 G
+05
+0=
+16
+1>
+#260
+b0 C
+0@
+b11111111111111111111111111111111 H
+14
+1<
+b0 ;
+b0 G
+#280
+b11111111111111111111111111111111 C
+b0 H
+1@
+04
+0<
+b1 ;
+b1 G
+15
+1=
+#300
+b0 C
+b1010101010101010101010101010101 H
+14
+1<
+b10 ;
+b10 G
+#320
+x3
+b11111111111111111111111111111111 C
+bz H
+0@
+04
+0<
+b11 ;
+b11 G
+05
+0=
+06
+0>
+07
+0?
