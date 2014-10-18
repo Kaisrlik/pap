@@ -2,9 +2,9 @@ module test();
   reg [31:0] d;
   wire [31:0] data1, data0, data5;
   reg [4:0] i1, i2, i3;
-  reg clk, es, en;
+  reg clk, es, en, rs;
 
-   registerBlock32 a(i1,i2,i3,clk,en,rs,d, data0, data1);
+//   registerBlock32 a(i1,i2,i3,clk,en,rs,d, data0, data1);
 
    initial begin
       $dumpfile("test");
