@@ -67,13 +67,14 @@ module multAx4(input [31:0] a,
 endmodule
 
 module pc(
-   input [31:0] pc,
-   input clk,
+   input [31:0] pc,//pc2,
+   input clk, alu2_en,
    output reg[31:0] e);
 
    always @ (posedge clk)
    begin
-         e = addr+4;
+//      if(alu2_en == 1)
+         e = addr+4+4*alu2_en;
    end
 endmodule
 
@@ -96,6 +97,7 @@ module regs(
       input clk,we1, we2,
       input [31:0] w1, w2,
       input [4:0] w1addr, w2addr,
+      output alu2_en,
       output [31:0] a1, a2, a3, b1, b2, b3);
 
 
@@ -103,17 +105,25 @@ module regs(
 
    always @ (posedge clk)
    begin
+
       if (we1 == 1)
          regs[w1addr] = w1;
       if (we2 == 1)
          regs[w2addr] = w2;
       regs[0] = 32'b0;
+//   end
+//   always @ (*)
+//   begin
       a1 = regs[a];
       a2 = regs[b];
       a3 = regs[c];
       b1 = regs[d];
       b2 = regs[e];
       b3 = regs[f];
+      if (c == d || c == e || c == 31)
+         alu2_en = 0;
+      else
+         alu2_en = 1;
    end
 endmodule
 
@@ -121,68 +131,117 @@ module dec(input [31:0] i1, i2,
       input clk,
       output [4:0] addrreg1, addrreg2, addrreg3,
       output en_alu2,
-      output [4:0] addr2reg1, addr2reg2, addr2reg3);
+      output [4:0] addr2reg1, addr2reg2, addr2reg3,
+      output [31:0] e, f);
 
-
-   reg ssen;
-   reg is1reg;
 
    always @ (posedge clk)
       begin
-         ssen = 0;
-         case(i1[31:26])
-            0: begin //jump ma taky 0
-               addrreg1 = i1[25:21];
-               addrreg2 = i1[20:16];
-               addrreg3 = i1[15:11];
-               if(i1[5:0] == 5'b01000)
-                  is1reg = 0;
-               else
-                  is1reg = 1;
-               end
-            6'b001000: begin
-               //addi
-               addrreg1 = i1[25:21];
-               addrreg2 = i1[20:16];
-               addrreg3 = 5'bz;
-               end
-
-            6'b000011: begin
-               //jump and link without regs
-               //$31 = PC + 8;
-               //PC = (PC & 0xf0000000) | (target << 2)
-               addrreg1 = 5'bz;
-               addrreg2 = 5'bz;
-               addrreg3 = 5'bz;
-               end
-            6'b101011: begin
-               //sw MEM[$s + offset] = $t;
-               addrreg1 = i1[25:21];
-               addrreg2 = i1[20:16];
-               addrreg3 = 5'bz;
-               end
-            6'b100011: begin
-               //lw $t = MEM[$s + offset];
-               addrreg1 = i1[25:21];
-               addrreg2 = i1[20:16];
-               addrreg3 = 5'bz;
-               end
-            6'b000100: begin
-               //beq if $s == $t go to PC+4+4*offset;
-               //    else go to PC+4
-               addrreg1 = i1[25:21];
-               addrreg2 = i1[20:16];
-               addrreg3 = 5'bz;
-               end
-            default:
-            begin
-               addrreg1 = 5'bz;
-               addrreg2 = 5'bz;
-               addrreg3 = 5'bz;
-            end
-         endcase
+         addrreg1 = i1[25:21];
+         addrreg2 = i1[20:16];
+         addrreg3 = i1[15:11];
+         addr2reg1 = i2[25:21];
+         addr2reg2 = i2[20:16];
+         addr2reg3 = i2[15:11];
+         e = i1;
+         f = i2;
+         //TODO: test i2 to jmps and branch?
+         en_alu2 = 1;
+         if(i1[31:26] == 6'b0 && i1[5:0] == 6'b001000)
+            en_alu2 = 0;
+         if(i1[31:26] == 6'b000011)
+            en_alu2 = 0;
+         if(i1[31:26] == 6'b000100)
+            en_alu2 = 0;
+         if(i1[31:26] == 6'b001000)
+            en_alu2 = 0;
       end
 endmodule
+
+
+module alu(input aluNum;
+         input [31:0] a, ipc,
+         input [31:0] r1, r2, r3,
+         input clk, en_reg, en_dec,
+         output [4:0] d,
+         output [31:0] pc,
+         output [31:0] data);
+
+   always @ (posedge clk)
+   begin
+      $display( "Core %d: INS: %b", aluNum, a[31:26]);
+      d = 5'b0;
+      case(a[31:26])
+         6'b0:
+            begin //mat + jump
+            case(a[5:0])
+               6'b100000: //add $3 = $1 + $2;
+               begin
+                  data = r1+r2;
+                  d = r3;
+               end
+               6'b100100: //and $d = $s & $t;
+               begin
+                  data = r1&r2;
+                  d = r3;
+               end
+               6'b100101: //or
+               begin
+                  data = r1|r2;
+                  d = r3;
+               end
+               6'b101010: //slt if $s < $t $d = 1; else $d = 0;
+               begin
+                  if (r1 < r2)
+                     data = 1;
+                  else
+                     data = 0;
+                  d = r3;
+               end
+               6'b100010: //sub
+               begin
+                  data = r1-r2;
+                  d = r3;
+               end
+               6'b001000: //jr goto s; jen $1
+               begin
+                   pc = r1;
+               end
+               default:
+                  $display( "ERROR: R instruction using unsupported function %b",a[5:0]);
+            endcase
+            end
+         6'b001000: //addi Adds a register and a sign-extended immediate value and stores the result in a register  Operation: $t = $s + imm;
+         begin
+            data = r1 + a[15:0];
+            d = r2;
+         end
+         6'b000100: //beq if $s == $t go to PC+4+4*offset; else go to PC+4
+         begin
+            if(r1 == r2)
+               pc = ipc+4+4*a[15:0];//TODO+4*offset
+         end
+         6'b100011: //lw $t = MEM[$s + offset];
+         begin
+            d = r2;
+            data = MEM[r1+a[15:0]] //TODO+offset
+         end
+         6'b101011: //sw MEM[$s + offset] = $t;
+         begin
+            MEM[r1+a[15:0]] = r2; //TODO +offset
+         end
+         6'b000011: //jal $31 = PC + 8; PC = (PC & 0xf0000000) | (target << 2)
+         begin
+            d = 31;
+            data = ipc+8+4*aluNum;
+            pc = ((ipc+4*aluNum) & 26'hF0000000) | (a[25:0] << 2);
+         end
+         default:
+             $display( "ERROR: Unsupported opcode %b",a[31:26]);
+      endcase
+   end
+endmodule
+
 
 
 module comp2(input [31:0] a, b,
