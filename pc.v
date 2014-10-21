@@ -74,43 +74,91 @@ module pc(
    always @ (posedge clk)
    begin
 //      if(alu2_en == 1)
-         e = addr+4+4*alu2_en;
+         e = pc+4+4*alu2_en;
    end
 endmodule
 
-module imem (input [31:0] addr, addr2,
+
+//TODO :   readmemh doesnt work
+module imem (input [31:0] addr,
    input clk,
-   output [31:0] e, f);
+   output reg [31:0] e, f);
 
-   reg [7:0] RAM[4095:0];
+   reg [31:0] RAM[4095:0];
 
-   initial  $readmemh ("memfile.dat",RAM);
-
-   assign e <= {RAM[addr],RAM[addr-1], RAM[addr-2], RAM[addr-3]};
-   assign f <= {RAM[addr+4],RAM[addr+3], RAM[addr+2], RAM[addr+1]};
-
+   initial  $readmemh ("ins2",RAM);
+   always @ (*)
+   begin
+      e = RAM[addr];
+      f = RAM[addr];
+   end
 endmodule
 
+module dmem (input [31:0] a, b,
+   input clk,
+   input [31:0] r1, r2, r3,
+   input [31:0] r21, r22, r23,
+   output reg [4:0] e, f,
+   output reg [31:0] data1, data2);
 
-module regs(
-      input [4:0] a, b, c, d, e, f,
-      input clk,we1, we2,
-      input [31:0] w1, w2,
-      input [4:0] w1addr, w2addr,
-      output alu2_en,
-      output [31:0] a1, a2, a3, b1, b2, b3);
-
-
-   reg [31:0] regs[31:0];
+   reg [31:0] MEM[4095:0];
 
    always @ (posedge clk)
    begin
+      e = 32'bz;
+      f = 32'bz;
+      case(a)
+         6'b100011: //lw $t = MEM[$s + offset];
+         begin
+            e = a[25:20];
+            data1 = MEM[r1+a[15:0]];
+         end
+         6'b101011: //sw MEM[$s + offset] = $t;
+            MEM[r1+a[15:0]] = r2;
+         default:
+            e = 32'bz;
+     endcase
+      case(b)
+         6'b100011: //lw $t = MEM[$s + offset];
+         begin
+            f = b[25:20];
+            data2 = MEM[r1+b[15:0]];
+         end
+         6'b101011: //sw MEM[$s + offset] = $t;
+            MEM[r1+b[15:0]] = r2;
+         default:
+            f = 32'bz;
+     endcase
+  end
+   //assign e <= {MEM[addr],MEM[addr-1], MEM[addr-2], MEM[addr-3]};
+   //assign f <= {MEM[addr2],MEM[addr2-1], MEM[addr2-2], MEM[addr2-3]};
+endmodule
 
-      if (we1 == 1)
-         regs[w1addr] = w1;
-      if (we2 == 1)
-         regs[w2addr] = w2;
+module regs(
+      input [4:0] a, b, c, d, e, f,
+      input clk,
+      input [31:0] ins1, ins2, w1, w2,
+      input [4:0] w1addr, w2addr,
+      output reg alu2_en,
+      output reg [31:0] a1, a2, a3, b1, b2, b3, inso1, inso2);
+
+
+   reg [31:0] regs[31:0];
+   initial regs[9] = 32'b1;
+   initial regs[8] = 32'b1;
+      initial regs[10] = 32'b111;
+      initial regs[11] = 32'b0;
+
+   always @ (posedge clk)
+   begin
+      inso1 = ins1;
+      inso2 = ins2;
+//WriteEnable?
+      regs[w1addr] = w1;
+      regs[w2addr] = w2;
       regs[0] = 32'b0;
+
+
 //   end
 //   always @ (*)
 //   begin
@@ -120,7 +168,7 @@ module regs(
       b1 = regs[d];
       b2 = regs[e];
       b3 = regs[f];
-      if (c == d || c == e || c == 31)
+      if (c == d || c == e || c == f || c == 31)
          alu2_en = 0;
       else
          alu2_en = 1;
@@ -129,10 +177,10 @@ endmodule
 
 module dec(input [31:0] i1, i2,
       input clk,
-      output [4:0] addrreg1, addrreg2, addrreg3,
-      output en_alu2,
-      output [4:0] addr2reg1, addr2reg2, addr2reg3,
-      output [31:0] e, f);
+      output reg [4:0] addrreg1, addrreg2, addrreg3,
+      output reg en_alu2,
+      output reg [4:0] addr2reg1, addr2reg2, addr2reg3,
+      output reg [31:0] e, f);
 
 
    always @ (posedge clk)
@@ -159,18 +207,20 @@ module dec(input [31:0] i1, i2,
 endmodule
 
 
-module alu(input aluNum;
+module alu(input aluNum,
          input [31:0] a, ipc,
          input [31:0] r1, r2, r3,
          input clk, en_reg, en_dec,
-         output [4:0] d,
-         output [31:0] pc,
-         output [31:0] data);
+         output reg [4:0] d,
+         output reg [31:0] pc,
+         output reg [31:0] data);
 
    always @ (posedge clk)
    begin
       $display( "Core %d: INS: %b", aluNum, a[31:26]);
       d = 5'b0;
+      if(en_reg & en_dec)
+      begin
       case(a[31:26])
          6'b0:
             begin //mat + jump
@@ -219,26 +269,29 @@ module alu(input aluNum;
          6'b000100: //beq if $s == $t go to PC+4+4*offset; else go to PC+4
          begin
             if(r1 == r2)
-               pc = ipc+4+4*a[15:0];//TODO+4*offset
+               pc = ipc+4+4*a[15:0];
          end
          6'b100011: //lw $t = MEM[$s + offset];
-         begin
+            d = 0;
+         /*begin
             d = r2;
-            data = MEM[r1+a[15:0]] //TODO+offset
-         end
-         6'b101011: //sw MEM[$s + offset] = $t;
-         begin
-            MEM[r1+a[15:0]] = r2; //TODO +offset
-         end
+            data = MEM[r1+a[15:0]]
+         end*/
+         6'b101011://sw MEM[$s + offset] = $t;
+            d=0;
+         /*begin
+            MEM[r1+a[15:0]] = r2;
+         end*/
          6'b000011: //jal $31 = PC + 8; PC = (PC & 0xf0000000) | (target << 2)
          begin
             d = 31;
             data = ipc+8+4*aluNum;
-            pc = ((ipc+4*aluNum) & 26'hF0000000) | (a[25:0] << 2);
+            pc = ((ipc+4*aluNum) & 32'hF0000000) | (a[25:0] << 2);
          end
          default:
              $display( "ERROR: Unsupported opcode %b",a[31:26]);
       endcase
+   end
    end
 endmodule
 
