@@ -69,12 +69,15 @@ endmodule
 module pc(
    input [31:0] pc,//pc2,
    input clk, alu2_en,
-   output reg[31:0] e);
+   output reg[31:0] outputpc);
+
+   initial outputpc = 0;
 
    always @ (posedge clk)
    begin
+      //TODO : mozna dodelat ifelse na alu2en
 //      if(alu2_en == 1)
-         e = pc+4+4*alu2_en;
+         outputpc = pc+4+4*alu2_en;
    end
 endmodule
 
@@ -103,10 +106,14 @@ module dmem (input [31:0] a, b,
 
    reg [31:0] MEM[4095:0];
 
+
+   //TODO : compiler by nemel udelat, ze nacte za sebou na stejnou addr a testuji to regs
    always @ (posedge clk)
    begin
-      e = 32'bz;
-      f = 32'bz;
+      e = 5'bz;
+      f = 5'bz;
+      data1 = 32'bz;
+      data2 = 32'bz;
       case(a)
          6'b100011: //lw $t = MEM[$s + offset];
          begin
@@ -207,18 +214,29 @@ module dec(input [31:0] i1, i2,
 endmodule
 
 
+
+
 module alu(input aluNum,
          input [31:0] a, ipc,
          input [31:0] r1, r2, r3,
          input clk, en_reg, en_dec,
          output reg [4:0] d,
          output reg [31:0] pc,
-         output reg [31:0] data);
+         output reg [31:0] data,
+      output reg eno);
+
+   initial eno = 0;
+   initial pc = 0;
 
    always @ (posedge clk)
    begin
       $display( "Core %d: INS: %b", aluNum, a[31:26]);
+      //d = 5'bz;
       d = 5'b0;
+      //data = 32'bz;
+      data = 32'b0;
+      eno = en_reg & en_dec;
+      pc = ipc;
       if(en_reg & en_dec)
       begin
       case(a[31:26])
@@ -269,16 +287,22 @@ module alu(input aluNum,
          6'b000100: //beq if $s == $t go to PC+4+4*offset; else go to PC+4
          begin
             if(r1 == r2)
-               pc = ipc+4+4*a[15:0];
+               pc = ipc+4+4*a[15:0]+4*aluNum;
          end
          6'b100011: //lw $t = MEM[$s + offset];
-            d = 0;
+         begin
+         d = 5'bz;
+         data = 32'bz;
+         end
          /*begin
             d = r2;
             data = MEM[r1+a[15:0]]
          end*/
          6'b101011://sw MEM[$s + offset] = $t;
-            d=0;
+         begin
+         d = 5'bz;
+         data = 32'bz;
+         end
          /*begin
             MEM[r1+a[15:0]] = r2;
          end*/
