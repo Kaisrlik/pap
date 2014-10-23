@@ -73,17 +73,18 @@ module pc(
 
    initial outputpc = 0;
 
+//   #1
    always @ (posedge clk)
    begin
       //TODO : mozna dodelat ifelse na alu2en
 //      if(alu2_en == 1)
-         outputpc = pc+4+4*alu2_en;
+         outputpc = pc+1+1*alu2_en;
    end
 endmodule
 
 
 //TODO :   readmemh doesnt work
-module imem (input [31:0] addr,
+module imem (input [31:0] pcaddr,
    input clk,
    output reg [31:0] e, f);
 
@@ -92,8 +93,8 @@ module imem (input [31:0] addr,
    initial  $readmemh ("ins2",RAM);
    always @ (*)
    begin
-      e = RAM[addr];
-      f = RAM[addr];
+      e = RAM[pcaddr];
+      f = RAM[pcaddr];
    end
 endmodule
 
@@ -140,7 +141,6 @@ module dmem (input [31:0] a, b,
    //assign e <= {MEM[addr],MEM[addr-1], MEM[addr-2], MEM[addr-3]};
    //assign f <= {MEM[addr2],MEM[addr2-1], MEM[addr2-2], MEM[addr2-3]};
 endmodule
-
 module regs(
       input [4:0] a, b, c, d, e, f,
       input clk,
