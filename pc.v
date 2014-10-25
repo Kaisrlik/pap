@@ -1,84 +1,22 @@
-module muxCv(input a, b, c, d, output reg e);
-   always @(a, b, c, d)
-      if(a)
-         e = b & c;
-      else
-         e = (b ^ d) | c;
-endmodule
-
-
-module mux2(input [31:0] a, b, 
-   input x,
-   output reg [31:0] e);
-   always @ (*)
-      case (x)
-         0: e = a;
-         1: e = b;
-         default: e = 32'bz;
-      endcase
-endmodule
-
-
-module mux3(input [31:0] a, b, c,
-   input [1:0] x, 
-   output reg [31:0] e);
-   always @ (*)
-      case (x)
-         0: e = a;
-         1: e = b;
-         2: e = c;
-         default: e = 32'bz;
-      endcase
-endmodule
-
-module sum32(input [31:0] a, b,
-   output reg [31:0] e,
-   output reg isZero, overflow);
-
-   always @ (*)
-      begin
-         e = a+b;
-         if (e < a && e < b)
-            overflow = 1;
-         else
-            overflow = 0;
-         if (e == 0)
-            isZero = 1;
-         else
-            isZero = 0;
-      end
-endmodule
-
-
-
-module multAx4(input [31:0] a,
-   output reg [31:0] e,
-   output reg isZero);
-
-   always @ (*)
-      begin
-         e = a*4;
-         if (e == 0)
-            isZero = 1;
-         else
-            isZero = 0;
-      end
-
-endmodule
-
 module pc(
-   input [31:0] pc,//pc2,
-   input clk, alu2_en,
+   input [31:0] pc, jmpaddr,
+   input clk, alu2_en, jumpen, rst,
    output reg[31:0] outputpc);
 
    initial outputpc = 0;
 
-//   #1
    always @ (posedge clk)
    begin
+
       //TODO : mozna dodelat ifelse na alu2en
 //      if(alu2_en == 1)
-         outputpc = pc+1+1*alu2_en;
+   if(rst == 0)
+      if (jumpen == 1)
+         #1 outputpc = jmpaddr;
+      else
+         #1 outputpc = pc+2;
+   else
+      outputpc = pc;
    end
 endmodule
 
@@ -86,16 +24,22 @@ endmodule
 //TODO :   readmemh doesnt work
 module imem (input [31:0] pcaddr,
    input clk,
-   output reg [31:0] e, f);
+   output reg [31:0] e, f, opcaddr);
 
    reg [31:0] RAM[4095:0];
 
    initial  $readmemh ("ins2",RAM);
    always @ (*)
    begin
-      e = RAM[pcaddr];
-      f = RAM[pcaddr];
+//   if(rst == 0)
+  // begin
+      #1 e = RAM[pcaddr];
+      f = RAM[pcaddr+1];
+      opcaddr = pcaddr;
    end
+   //else
+     // opcaddr = 32'bz;
+   //end
 endmodule
 
 module dmem (input [31:0] a, b,
@@ -105,111 +49,187 @@ module dmem (input [31:0] a, b,
    output reg [4:0] e, f,
    output reg [31:0] data1, data2);
 
+   initial  $readmemh ("data",MEM);
    reg [31:0] MEM[4095:0];
 
+   initial e = 5'b0;
+   initial f = 5'b0;
+   initial data1 = 32'b0;
+   initial data2 = 32'b0;
 
    //TODO : compiler by nemel udelat, ze nacte za sebou na stejnou addr a testuji to regs
    always @ (posedge clk)
    begin
-      e = 5'bz;
-      f = 5'bz;
-      data1 = 32'bz;
-      data2 = 32'bz;
-      case(a)
+      $display( "DataMEM:  %x, %x",a,b);
+      #1 e = 5'b0;
+      f = 5'b0;
+      data1 = 32'b0;
+      data2 = 32'b0;
+      case(a[31:26])
          6'b100011: //lw $t = MEM[$s + offset];
          begin
-            e = a[25:20];
+            e = a[20:16];
             data1 = MEM[r1+a[15:0]];
          end
          6'b101011: //sw MEM[$s + offset] = $t;
             MEM[r1+a[15:0]] = r2;
          default:
-            e = 32'bz;
+            e = 32'b0;
      endcase
-      case(b)
+      case(b[31:26])
          6'b100011: //lw $t = MEM[$s + offset];
          begin
-            f = b[25:20];
+            f = b[20:16];
             data2 = MEM[r1+b[15:0]];
          end
          6'b101011: //sw MEM[$s + offset] = $t;
             MEM[r1+b[15:0]] = r2;
          default:
-            f = 32'bz;
+            f = 32'b0;
      endcase
   end
    //assign e <= {MEM[addr],MEM[addr-1], MEM[addr-2], MEM[addr-3]};
    //assign f <= {MEM[addr2],MEM[addr2-1], MEM[addr2-2], MEM[addr2-3]};
 endmodule
 module regs(
-      input [4:0] a, b, c, d, e, f,
       input clk,
-      input [31:0] ins1, ins2, w1, w2,
-      input [4:0] w1addr, w2addr,
+      input [31:0] ins1, ins2, w1, w2, w3, w4,
+      input [4:0] w1addr, w2addr, w3addr, w4addr,
+      input alu2_dec,
       output reg alu2_en,
-      output reg [31:0] a1, a2, a3, b1, b2, b3, inso1, inso2);
+      output reg [31:0] a1, a2, a3, b1, b2, b3, inso1, inso2,
+      input [31:0] ipc, output reg [31:0] opc);
 
 
    reg [31:0] regs[31:0];
+   initial alu2_en = 0;
    initial regs[9] = 32'b1;
    initial regs[8] = 32'b1;
-      initial regs[10] = 32'b111;
-      initial regs[11] = 32'b0;
+   initial regs[10] = 32'b111;
+   initial regs[11] = 32'b0;
+
+
+   //hazard
+   always @ (w1, w2, w1addr, w2addr  )
+   begin
+      #1 regs[w1addr] = w1;
+      $display( "Write 1: addr %d: val: %b", w1addr, w1);
+      regs[w2addr] = w2;
+      regs[w3addr] = w3;
+      regs[w4addr] = w4;
+      regs[0] = 32'b0;
+   end
 
    always @ (posedge clk)
    begin
+      opc = ipc;
+      alu2_en = alu2_dec;
       inso1 = ins1;
       inso2 = ins2;
 //WriteEnable?
-      regs[w1addr] = w1;
-      regs[w2addr] = w2;
-      regs[0] = 32'b0;
-
-
+//      regs[w1addr] = w1;
+//      regs[w2addr] = w2;
+//      regs[0] = 32'b0;
 //   end
 //   always @ (*)
 //   begin
-      a1 = regs[a];
-      a2 = regs[b];
-      a3 = regs[c];
-      b1 = regs[d];
-      b2 = regs[e];
-      b3 = regs[f];
-      if (c == d || c == e || c == f || c == 31)
-         alu2_en = 0;
-      else
-         alu2_en = 1;
+      a1 = regs[ins1[25:21]];
+      a2 = regs[ins1[20:16]];
+      a3 = regs[ins1[15:11]];
+      b1 = regs[ins2[25:21]];
+      b2 = regs[ins2[20:16]];
+      b3 = regs[ins2[15:11]];
    end
 endmodule
 
-module dec(input [31:0] i1, i2,
-      input clk,
-      output reg [4:0] addrreg1, addrreg2, addrreg3,
-      output reg en_alu2,
-      output reg [4:0] addr2reg1, addr2reg2, addr2reg3,
-      output reg [31:0] e, f);
+module dec(input [31:0] inst1, inst2,
+      input clk,rst, waitpcin,
+      output reg en_alu2, waitpc,
+      output reg [31:0] e, f,
+      input [31:0] ipc, output reg [31:0] opc);
 
+   initial en_alu2 = 0;
+   reg [31:0] buffer [31:0];
+   reg [31:0] pcbuffer [31:0];
+   reg [31:0] i1, i2;
+   reg [31:0] pbufferlast;
+   reg [31:0] sum;
+   reg [31:0] pbuffernext;
+   initial sum = 5'b0;
+   initial pbuffernext = 0;
+   initial pbufferlast = 0;
+   initial waitpc = 0;
+
+   always @ (rst)
+   begin
+      e = 32'b0;
+      f = 32'b0;
+      en_alu2 = 0;
+      opc = 32'bz;
+      sum = 0;
+      pbufferlast = 0;
+      pbuffernext = 0;
+   end
 
    always @ (posedge clk)
       begin
-         addrreg1 = i1[25:21];
-         addrreg2 = i1[20:16];
-         addrreg3 = i1[15:11];
-         addr2reg1 = i2[25:21];
-         addr2reg2 = i2[20:16];
-         addr2reg3 = i2[15:11];
-         e = i1;
-         f = i2;
-         //TODO: test i2 to jmps and branch?
+         #1 i1 = inst1;
+            i2 = inst2;
+         opc = ipc;
+         
+         if(waitpcin == 0)
+         begin
+         buffer[pbufferlast] = i1;
+         pbufferlast = pbufferlast+1;
+         buffer[pbufferlast] = i2;
+         pbufferlast = pbufferlast+1;
+         sum = sum + 2;
+         end
+         waitpc = 0;
+         if (sum >= 6)
+           waitpc = 1;
+        if (sum == 3)
+           waitpc = 0;
+
+
          en_alu2 = 1;
-         if(i1[31:26] == 6'b0 && i1[5:0] == 6'b001000)
+
+         if(buffer[pbuffernext][31:26] == 6'b0 && buffer[pbuffernext][5:0] == 6'b001000)
             en_alu2 = 0;
-         if(i1[31:26] == 6'b000011)
+         if(buffer[pbuffernext][31:26] == 6'b000011)
             en_alu2 = 0;
-         if(i1[31:26] == 6'b000100)
+         if(buffer[pbuffernext][31:26] == 6'b000100)
             en_alu2 = 0;
-         if(i1[31:26] == 6'b001000)
+         if(buffer[pbuffernext][31:26] == 6'b001000)
             en_alu2 = 0;
+         //datahazard
+         if ( buffer[pbuffernext][15:11]== buffer[pbuffernext-1][25:21] || buffer[pbuffernext][15:11] == buffer[pbuffernext-1][20:16] || buffer[pbuffernext][15:11] ==  buffer[pbuffernext-1][15:11] || buffer[pbuffernext][15:11] == 31)
+            en_alu2 = 0;
+         else
+            en_alu2 = 1&en_alu2;
+
+
+         e = buffer[pbuffernext];
+         pbuffernext = pbuffernext + 1;
+         sum = sum - 1;
+
+         if(buffer[pbuffernext][31:26] == 6'b0 && buffer[pbuffernext][5:0] == 6'b001000)
+            en_alu2 = 0;
+         if(buffer[pbuffernext][31:26] == 6'b000011)
+            en_alu2 = 0;
+         if(buffer[pbuffernext][31:26] == 6'b000100)
+            en_alu2 = 0;
+         if(buffer[pbuffernext][31:26] == 6'b001000)
+            en_alu2 = 0;
+
+         if (en_alu2 == 1)
+         begin
+         f = buffer[pbuffernext];
+         pbuffernext = pbuffernext + 1;
+         sum = sum - 1;
+         end
+         else
+            f = 32'b0;
       end
 endmodule
 
@@ -219,25 +239,23 @@ endmodule
 module alu(input aluNum,
          input [31:0] a, ipc,
          input [31:0] r1, r2, r3,
-         input clk, en_reg, en_dec,
+         input clk, en,
          output reg [4:0] d,
          output reg [31:0] pc,
          output reg [31:0] data,
-      output reg eno);
+      output reg /*eno,*/ jmp);
 
-   initial eno = 0;
    initial pc = 0;
+   initial jmp = 1'b0;
 
    always @ (posedge clk)
    begin
       $display( "Core %d: INS: %b", aluNum, a[31:26]);
-      //d = 5'bz;
-      d = 5'b0;
-      //data = 32'bz;
+      #1 d = 5'b0;
+      jmp = 1'b0;
       data = 32'b0;
-      eno = en_reg & en_dec;
-      pc = ipc;
-      if(en_reg & en_dec)
+      # 1 pc = ipc;
+      if(en)
       begin
       case(a[31:26])
          6'b0:
@@ -246,17 +264,17 @@ module alu(input aluNum,
                6'b100000: //add $3 = $1 + $2;
                begin
                   data = r1+r2;
-                  d = r3;
+                  d = a[15:11];
                end
                6'b100100: //and $d = $s & $t;
                begin
                   data = r1&r2;
-                  d = r3;
+                  d = a[15:11];
                end
                6'b100101: //or
                begin
                   data = r1|r2;
-                  d = r3;
+                  d = a[15:11];
                end
                6'b101010: //slt if $s < $t $d = 1; else $d = 0;
                begin
@@ -264,16 +282,17 @@ module alu(input aluNum,
                      data = 1;
                   else
                      data = 0;
-                  d = r3;
+                  d = a[15:11];
                end
                6'b100010: //sub
                begin
                   data = r1-r2;
-                  d = r3;
+                  d = a[15:11];
                end
                6'b001000: //jr goto s; jen $1
                begin
                    pc = r1;
+                   jmp = 1;
                end
                default:
                   $display( "ERROR: R instruction using unsupported function %b",a[5:0]);
@@ -282,26 +301,29 @@ module alu(input aluNum,
          6'b001000: //addi Adds a register and a sign-extended immediate value and stores the result in a register  Operation: $t = $s + imm;
          begin
             data = r1 + a[15:0];
-            d = r2;
+            d = a[20:16];
          end
          6'b000100: //beq if $s == $t go to PC+4+4*offset; else go to PC+4
          begin
             if(r1 == r2)
-               pc = ipc+4+4*a[15:0]+4*aluNum;
+            begin
+               pc = ipc+1+1*a[15:0]+1*aluNum;
+               jmp = 1;
+            end
          end
          6'b100011: //lw $t = MEM[$s + offset];
          begin
-         d = 5'bz;
-         data = 32'bz;
+         d = 5'b0;
+         data = 32'b0;
          end
-         /*begin
+         /*begin/
             d = r2;
             data = MEM[r1+a[15:0]]
          end*/
          6'b101011://sw MEM[$s + offset] = $t;
          begin
-         d = 5'bz;
-         data = 32'bz;
+         d = 5'b0;
+         data = 32'b0;
          end
          /*begin
             MEM[r1+a[15:0]] = r2;
@@ -311,6 +333,7 @@ module alu(input aluNum,
             d = 31;
             data = ipc+8+4*aluNum;
             pc = ((ipc+4*aluNum) & 32'hF0000000) | (a[25:0] << 2);
+            jmp = 1;
          end
          default:
              $display( "ERROR: Unsupported opcode %b",a[31:26]);
@@ -318,74 +341,3 @@ module alu(input aluNum,
    end
    end
 endmodule
-
-
-
-module comp2(input [31:0] a, b,
-   output reg isEq);
-
-
-   always @ (*)
-      if( a == b)
-         isEq = 1;
-      else
-         isEq = 0;
-endmodule
-
-module signExt16t32(input [15:0] a,
-   output reg [31:0] e);
-   always @ (*)
-      if(a[15] == 1)
-         e = {a[15], 16'hFF, a[14:0]};
-      else
-         e = {a[15], 16'b0, a[14:0]};
-endmodule
-
-module register32(input [31:0] a,
-      input rs, clk, en,
-      output reg [31:0] e);
-   always @ (clk)
-   begin
-      if(clk == 1 && en == 1 && a != 32'bz)
-         e = a;
-      if(clk == 1 && rs == 1 && en == 1)
-         e = 0;
-   end
-endmodule
-
-
-
-
-/*module registerBlock32(input [4:0] ra, rb, w,
-      input clk, en, rs,
-      input [31:0] wd,
-      output reg [31:0] e, f);
-
-   wire [31:0] y[31:0];
-   wire [31:0] in[31:0];
-   wire x[31:0];
-   register32 regs[31:0](in[31:0], rs, clk, en, y[31:0]);
-
-   always @ (clk, en)
-   begin
-      x = 32'b0;
-      if(clk == 1 && en == 1)
-         if(w != 5'bz)
-         begin
-            in[w] = wd;
-            x[w] = 1;
-         end
-      if(clk == 1 && en == 1)
-         if(ra != 5'bz)
-         begin
-            e = regs[ra];
-            x[w] = 1;
-         end
-      if(clk == 1 && en == 1)
-         if(rb != 5'bz)
-         begin
-            f = regs[rb];
-            x[w] = 1;
-         end
-   end
-endmodule*/
