@@ -51,11 +51,14 @@ module dmem (input [31:0] a, b,
 
    initial  $readmemh ("data",MEM);
    reg [31:0] MEM[4095:0];
+   reg [31:0] daddr1;
+   reg [31:0] daddr2;
 
    initial e = 5'b0;
    initial f = 5'b0;
    initial data1 = 32'b0;
    initial data2 = 32'b0;
+
 
    //TODO : compiler by nemel udelat, ze nacte za sebou na stejnou addr a testuji to regs
    always @ (posedge clk)
@@ -65,6 +68,8 @@ module dmem (input [31:0] a, b,
       f = 5'b0;
       data1 = 32'b0;
       data2 = 32'b0;
+      daddr1 = a[15:0]+r1;
+      daddr2 = a[15:0]+r21;
       case(a[31:26])
          6'b100011: //lw $t = MEM[$s + offset];
          begin
@@ -247,6 +252,7 @@ module alu(input aluNum,
 
    initial pc = 0;
    initial jmp = 1'b0;
+   reg [31:0] temp;
 
    always @ (posedge clk)
    begin
@@ -300,14 +306,22 @@ module alu(input aluNum,
             end
          6'b001000: //addi Adds a register and a sign-extended immediate value and stores the result in a register  Operation: $t = $s + imm;
          begin
-            data = r1 + a[15:0];
+            if(a[15] == 1)
+               temp = 32'hFFFF0000;
+            else
+               temp = 32'h0;
+            temp[15:0] = a[15:0];
+            data = r1 + temp;
             d = a[20:16];
          end
          6'b000100: //beq if $s == $t go to PC+4+4*offset; else go to PC+4
          begin
             if(r1 == r2)
             begin
-               pc = ipc+1+1*a[15:0]+1*aluNum;
+               if(a[15:0] != 1)
+                  pc = ipc+1+1*a[14:0]+1*aluNum;
+               else
+                  pc = ipc+1-1*a[14:0]+1*aluNum;
                jmp = 1;
             end
          end
