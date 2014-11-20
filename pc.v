@@ -1,3 +1,7 @@
+/*
+* http://ifire.cz/tst/mips.php
+*/
+
 module pc(
    input [31:0] pc, jmpaddr,
    input clk, alu2_en, jumpen, rst,
@@ -43,7 +47,7 @@ module imem (input [31:0] pcaddr,
 endmodule
 
 module dmem (input [31:0] a, b,
-   input clk,
+   input clk, alu2_en,
    input [31:0] r1, r2,
    input [31:0] r21, r22,
    output reg [4:0] e, f,
@@ -53,6 +57,7 @@ module dmem (input [31:0] a, b,
    reg [31:0] MEM[4095:0];
    reg [31:0] daddr1;
    reg [31:0] daddr2;
+   reg [31:0] temp;
 
    initial e = 5'b0;
    initial f = 5'b0;
@@ -73,33 +78,57 @@ module dmem (input [31:0] a, b,
       case(a[31:26])
          6'b100011: //lw $t = MEM[$s + offset];
          begin
+            if(a[15] == 1)
+               temp = 32'hFFFF0000;
+            else
+               temp = 32'h0;
+            temp[15:0] = a[15:0];
             e = a[20:16];
-            data1 = MEM[r1+a[15:0]];
-      $display("lw: $t = MEM[$s + offset] : %x, valr1=%x+offset=%x addr=%x",data1,r1,a[15:0],e);
+            data1 = MEM[r1+temp];
+      $display("lw: $t = MEM[$s + offset] addr=%x, %x = MEM[%x+%x]",e,data1,r1,temp);
          end
          6'b101011: //sw MEM[$s + offset] = $t;
             begin
-               MEM[r1+a[15:0]] = r2;
-               $display( "SW1:MEM[$s+offset]=$t:MEM[%x+off]=%x MEM[%x+%x]=%x",a[25:21],a[15:0],a[20:16],r1,a[15:0],r2);
+               if(a[15] == 1)
+                  temp = 32'hFFFF0000;
+               else
+                  temp = 32'h0;
+               temp[15:0] = a[15:0];
+               temp = temp+r1;
+               MEM[temp] = r2;
+               $display( "SW1:MEM[$s+offset]=$t:MEM[$%x+off]=$%x MEM[%x]=%x",a[25:21],a[20:16],temp,r2);
             end
          default:
             e = 32'b0;
      endcase
+     if(alu2_en)
+     begin
       case(b[31:26])
          6'b100011: //lw $t = MEM[$s + offset];
          begin
+            if(b[15] == 1)
+               temp = 32'hFFFF0000;
+            else
+               temp = 32'h0;
+            temp[15:0] = b[15:0];
             f = b[20:16];
-            data2 = MEM[r21+b[15:0]];
-      $display("LW2: %x, valr1=%x+offset=%x addr=%x",data2,r21,a[15:0],f);
+            temp = temp + r21;
+      $display("lw2: $t = MEM[$s + offset] addr=%x, %x = MEM[%x+%x]",f,data2,r21,temp);
          end
          6'b101011: //sw MEM[$s + offset] = $t;
             begin
-            MEM[r21+b[15:0]] = r22;
-               $display("SW2:MEM[$s+offset]=$t : MEM[%x+off]=%x MEM[%x+%x]=%x\n",a[25:21],a[15:0], a[20:16], r21, a[15:0], r22);
+            if(b[15] == 1)
+               temp = 32'hFFFF0000;
+            else
+               temp = 32'h0;
+            temp[15:0] = b[15:0];
+            MEM[r21+temp] = r22;
+               $display( "SW2:MEM[$s+offset]=$t:MEM[$%x+off]=$%x MEM[%x+%x]=%x", b[25:21], b[20:16], r21, temp, r22);
             end
             default:
             f = 32'b0;
-     endcase
+         endcase
+      end
   end
    //assign e <= {MEM[addr],MEM[addr-1], MEM[addr-2], MEM[addr-3]};
    //assign f <= {MEM[addr2],MEM[addr2-1], MEM[addr2-2], MEM[addr2-3]};
@@ -221,8 +250,8 @@ module dec(input [31:0] inst1, inst2,
 
 
          en_alu2 = 1;
-
-         if(buffer[pbuffernext][31:26] == 6'b0 && buffer[pbuffernext][5:0] == 6'b001000)
+         //jmp
+         if(buffer[pbuffernext][31:26] == 6'b0 && buffer[pbuffernext][5:0] == 6'b001000) 
             en_alu2 = 0;
          if(buffer[pbuffernext][31:26] == 6'b000011)
             en_alu2 = 0;
@@ -237,6 +266,8 @@ module dec(input [31:0] inst1, inst2,
             en_alu2 = 1&en_alu2;
 
 
+
+
          e = buffer[pbuffernext];
          pbuffernext = pbuffernext + 1;
          sum = sum - 1;
@@ -248,6 +279,11 @@ module dec(input [31:0] inst1, inst2,
          if(buffer[pbuffernext][31:26] == 6'b000100)
             en_alu2 = 0;
          if(buffer[pbuffernext][31:26] == 6'b001000)
+            en_alu2 = 0;
+
+         if(buffer[pbuffernext][31:26] == 6'b101011)
+            en_alu2 = 0;
+         if(buffer[pbuffernext][31:26] == 6'b100011)
             en_alu2 = 0;
 
          if (en_alu2 == 1)
@@ -293,19 +329,19 @@ module alu(input aluNum,
                6'b100000: //add $3 = $1 + $2;
                begin
                   data = r1+r2;
-                  $display( "ADD: %x %x %x -- d: %x=%x+%x", a[31:26], a[25:21], a[20:16], data, r1, r2);
+                  $display( "ADD: $%x+$%x dest$%x -- d: %x=%x+%x", a[25:21], a[20:16], a[15:11], data, r1, r2);
                   d = a[15:11];
                end
                6'b100100: //and $d = $s & $t;
                begin
                   data = r1&r2;
-                  $display( "AND: %d %d %d -- d: %d=%d&%d", a[31:26], a[25:21], a[20:16], data, r1, r2);
+                  $display( "AND: %x %x %x -- d: %x=%x&%x",  a[25:21], a[20:16], a[15:11], data, r1, r2);
                   d = a[15:11];
                end
                6'b100101: //or
                begin
                   data = r1|r2;
-                  $display( "OR: %d %d %d -- d: %d=%d|%d", a[31:26], a[25:21], a[20:16], data, r1, r2);
+                  $display( "OR: %x %x %x -- d: %x=%x|%x",  a[25:21], a[20:16], a[15:11], data, r1, r2);
                   d = a[15:11];
                end
                6'b101010: //slt if $s < $t $d = 1; else $d = 0;
@@ -314,13 +350,13 @@ module alu(input aluNum,
                      data = 1;
                   else
                      data = 0;
-                  $display( "slt: %d %d %d -- d: %d=%d<%d", a[31:26], a[25:21], a[20:16], data, r1, r2);
+                  $display( "slt: %x %x %x -- d: %x=%x<%x",  a[25:21], a[20:16],  a[15:11], data, r1, r2);
                   d = a[15:11];
                end
                6'b100010: //sub
                begin
                   data = r1-r2;
-                  $display( "sub: %d %d %d -- d: %d=%d-%d", a[31:26], a[25:21], a[20:16], data, r1, r2);
+                  $display( "sub: %x %x %x -- d: %x=%x-%x",  a[25:21], a[20:16],  a[15:11], data, r1, r2);
                   d = a[15:11];
                end
                6'b001000: //jr goto s; jen $1

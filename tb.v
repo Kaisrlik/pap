@@ -20,7 +20,7 @@ module test();
    regs REGS(clk,cpyData1,cpyData2, data5, data6,wmemdata1, wmemdata2, alu1r, alu2r,wmem1,wmem2, enalu2, enalu2reg, reg1, reg2, reg3, reg4, reg5, reg6, cpyData3, cpyData4, pcreg, pcalu);
    alu a1(0, cpyData3, pcalu, reg1, reg2,reg3, clk,       1, alu1r, ipc, data5, rst);
    alu a2(1, cpyData4,     0, reg4, reg5,reg6, clk,enalu2reg, alu2r,   x, data6, x1);
-   dmem MEM(cpyData3, cpyData4, clk, reg1, reg2,reg4,reg5, wmem1, wmem2, wmemdata1, wmemdata2);
+   dmem MEM(cpyData3, cpyData4, clk, enalu2reg, reg1, reg2,reg4,reg5, wmem1, wmem2, wmemdata1, wmemdata2);
    pc PC(mempc,ipc, clk, 1,rst, reset,mempc);
 
 
@@ -32,7 +32,7 @@ module test();
       $dumpvars;
       clk = 0;
 //      clk2 = 0;
-      #5320 $finish;
+      #1320 $finish;
    end
 
    always #10 clk = ~clk;
