@@ -12,16 +12,17 @@ module pc(
    always @ (posedge clk, jumpen)
    begin
 
-      //TODO : mozna dodelat ifelse na alu2en
-//      if(alu2_en == 1)
    if(rst == 0)
+   begin
       if (jumpen == 1)
-//         #1 outputpc = jmpaddr;
          #1 outputpc = jmpaddr;
       else
          #1 outputpc = pc+2;
+   end
    else
       outputpc = pc;
+   if (jumpen == 1)
+      #1 outputpc = jmpaddr;
    end
 endmodule
 
@@ -366,7 +367,7 @@ module alu(input aluNum,
                begin
                    pc = r1;
                   $display( "jr:$x pc: %x", a[25:21], pc);
-                  #2 jmp = 1;
+                  jmp = 1;
                end
                6'b0:
                   $display("NOP");
@@ -397,7 +398,7 @@ module alu(input aluNum,
                temp[15:0] = a[15:0];
                pc = ipc+1+temp+1*aluNum;
                $display("ibeq: if(%x==%x) %x (%x + %x + 1 * %x)", a[25:21], a[20:16], pc, ipc, temp, aluNum);
-              #2 jmp = 1;
+              jmp = 1;
             end
             //TODO: ELSE neni => branchprediction !!! :D
          end
@@ -426,7 +427,7 @@ module alu(input aluNum,
             data = ipc+2+1*aluNum;
             pc = ((ipc+1*aluNum) & 32'hF0000000) | (a[25:0] );// << 2); //TODO shift of
             $display("jal PC=%x=(%x & 0xf0000000)|(%x << 2>>2) $%x=%x", pc,ipc, a[25:0], d,data);
-           #2 jmp = 1;
+           jmp = 1;
          end
          default:
              $display( "ERROR: Unsupported opcode %b",a[31:26]);
