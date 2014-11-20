@@ -32,7 +32,7 @@ module test();
       $dumpvars;
       clk = 0;
 //      clk2 = 0;
-      #1320 $finish;
+      #1720 $finish;
    end
 
    always #10 clk = ~clk;

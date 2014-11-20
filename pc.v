@@ -9,13 +9,14 @@ module pc(
 
    initial outputpc = 0;
 
-   always @ (posedge clk)
+   always @ (posedge clk, jumpen)
    begin
 
       //TODO : mozna dodelat ifelse na alu2en
 //      if(alu2_en == 1)
    if(rst == 0)
       if (jumpen == 1)
+//         #1 outputpc = jmpaddr;
          #1 outputpc = jmpaddr;
       else
          #1 outputpc = pc+2;
@@ -206,7 +207,7 @@ module dec(input [31:0] inst1, inst2,
       input [31:0] ipc, output reg [31:0] opc);
 
    initial en_alu2 = 0;
-   reg [31:0] buffer [31:0];
+   reg [31:0] buffer [500:0];
    reg [31:0] pcbuffer [31:0];
    reg [31:0] i1, i2;
    reg [31:0] pbufferlast;
@@ -227,6 +228,8 @@ module dec(input [31:0] inst1, inst2,
       pbufferlast = 0;
       pbuffernext = 0;
    end
+
+//if buffer is full this function doing smthg really wrong! TODO:call rst if buffer is full or do better check
 
    always @ (posedge clk)
       begin
@@ -362,9 +365,12 @@ module alu(input aluNum,
                6'b001000: //jr goto s; jen $1
                begin
                    pc = r1;
-                  $display( "jr: %d -- pc: %d", a[31:26],pc);
-                   jmp = 1;
+                  $display( "jr:$x pc: %x", a[25:21], pc);
+                  #2 jmp = 1;
                end
+               6'b0:
+                  $display("NOP");
+
                default:
                   $display( "ERROR: R instruction using unsupported function %b",a[5:0]);
             endcase
@@ -384,13 +390,16 @@ module alu(input aluNum,
          begin
             if(r1 == r2)
             begin
-               if(a[15:0] != 1)
-                  pc = ipc+1+1*a[14:0]+1*aluNum;
+               if(a[15] == 1)
+                  temp = 32'hFFFF0000;
                else
-                  pc = ipc+1-1*a[14:0]+1*aluNum;
-                  $display("beq: %d %d %d i%d -- pc %d", a[31:26], a[25:21], a[20:16], a[15:0], pc);
-               jmp = 1;
+                  temp = 32'h0;
+               temp[15:0] = a[15:0];
+               pc = ipc+1+temp+1*aluNum;
+               $display("ibeq: if(%x==%x) %x (%x + %x + 1 * %x)", a[25:21], a[20:16], pc, ipc, temp, aluNum);
+              #2 jmp = 1;
             end
+            //TODO: ELSE neni => branchprediction !!! :D
          end
          6'b100011: //lw $t = MEM[$s + offset];
          begin
@@ -413,11 +422,11 @@ module alu(input aluNum,
          end*/
          6'b000011: //jal $31 = PC + 8; PC = (PC & 0xf0000000) | (target << 2)
          begin
-            d = 31;
-            data = ipc+8+4*aluNum;
-            pc = ((ipc+4*aluNum) & 32'hF0000000) | (a[25:0] << 2);
-                  $display("jal: %d %d %d i%d -- pc %d data31 %d", a[31:26], a[25:21], a[20:16], a[15:0], pc, data);
-            jmp = 1;
+            d = 31;//TODO target is sign?
+            data = ipc+2+1*aluNum;
+            pc = ((ipc+1*aluNum) & 32'hF0000000) | (a[25:0] );// << 2); //TODO shift of
+            $display("jal PC=%x=(%x & 0xf0000000)|(%x << 2>>2) $%x=%x", pc,ipc, a[25:0], d,data);
+           #2 jmp = 1;
          end
          default:
              $display( "ERROR: Unsupported opcode %b",a[31:26]);
