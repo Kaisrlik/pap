@@ -34,7 +34,7 @@ module imem (input [31:0] pcaddr,
 
    reg [31:0] RAM[4095:0];
 
-   initial  $readmemh ("ins2",RAM);
+   initial  $readmemh ("x.ins",RAM);
    always @ (*)
    begin
 //   if(rst == 0)
@@ -214,7 +214,7 @@ module dec(input [31:0] inst1, inst2,
    reg [31:0] pbufferlast;
    reg [31:0] sum;
    reg [31:0] pbuffernext;
-   initial sum = 5'b0;
+   initial sum = 32'b0;
    initial pbuffernext = 0;
    initial pbufferlast = 0;
    initial waitpc = 0;
@@ -224,7 +224,7 @@ module dec(input [31:0] inst1, inst2,
       e = 32'b0;
       f = 32'b0;
       en_alu2 = 0;
-      opc = 32'bz;
+      opc = 32'b0;
       sum = 0;
       pbufferlast = 0;
       pbuffernext = 0;
@@ -236,8 +236,6 @@ module dec(input [31:0] inst1, inst2,
       begin
          #1 i1 = inst1;
             i2 = inst2;
-         opc = ipc;
-         
          if(waitpcin == 0)
          begin
          buffer[pbufferlast] = i1;
@@ -247,7 +245,7 @@ module dec(input [31:0] inst1, inst2,
          sum = sum + 2;
          end
          waitpc = 0;
-         if (sum >= 6)
+         if (sum >= 666)
            waitpc = 1;
         if (sum == 3)
            waitpc = 0;
@@ -267,7 +265,8 @@ module dec(input [31:0] inst1, inst2,
          if ( buffer[pbuffernext][15:11]== buffer[pbuffernext-1][25:21] || buffer[pbuffernext][15:11] == buffer[pbuffernext-1][20:16] || buffer[pbuffernext][15:11] ==  buffer[pbuffernext-1][15:11] || buffer[pbuffernext][15:11] == 31)
             en_alu2 = 0;
          else
-            en_alu2 = 1&en_alu2;
+            en_alu2 =0;
+            //en_alu2 = 1&en_alu2;
 
 
 
@@ -298,6 +297,7 @@ module dec(input [31:0] inst1, inst2,
          end
          else
             f = 32'b0;
+         opc = ipc - sum+1;
       end
 endmodule
 
@@ -326,6 +326,7 @@ module alu(input aluNum,
       # 1 pc = ipc;
       if(en)
       begin
+             $display( "InputPC - %x",ipc);
       case(a[31:26])
          6'b0:
             begin //mat + jump
@@ -366,7 +367,7 @@ module alu(input aluNum,
                6'b001000: //jr goto s; jen $1
                begin
                    pc = r1;
-                  $display( "jr:$x pc: %x", a[25:21], pc);
+                  $display( "jr:%x pc: %x", a[25:21], pc);
                   jmp = 1;
                end
                6'b0:
@@ -400,6 +401,8 @@ module alu(input aluNum,
                $display("ibeq: if(%x==%x) %x (%x + %x + 1 * %x)", a[25:21], a[20:16], pc, ipc, temp, aluNum);
               jmp = 1;
             end
+            else
+               $display("ibeq: if(%x!=%x)", a[25:21], a[20:16] );
             //TODO: ELSE neni => branchprediction !!! :D
          end
          6'b100011: //lw $t = MEM[$s + offset];
@@ -424,7 +427,9 @@ module alu(input aluNum,
          6'b000011: //jal $31 = PC + 8; PC = (PC & 0xf0000000) | (target << 2)
          begin
             d = 31;//TODO target is sign?
-            data = ipc+2+1*aluNum;
+            data = ipc+1+1*aluNum;
+            data = ipc+1;
+            $display("XXXXXXXXXXXXXX $31=%x, curpc=%x",data, ipc);
             pc = ((ipc+1*aluNum) & 32'hF0000000) | (a[25:0] );// << 2); //TODO shift of
             $display("jal PC=%x=(%x & 0xf0000000)|(%x << 2>>2) $%x=%x", pc,ipc, a[25:0], d,data);
            jmp = 1;
